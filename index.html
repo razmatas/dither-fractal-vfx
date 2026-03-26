@@ -425,6 +425,39 @@
             letter-spacing: 1px;
             text-transform: uppercase;
         }
+        /* Gradient stop drag handle bar */
+        #gradient-stop-bar {
+            position: relative;
+            height: 28px;
+            margin: 8px 0 4px 0;
+            user-select: none;
+        }
+        #gradient-stop-track {
+            position: absolute;
+            top: 10px;
+            left: 8px;
+            right: 8px;
+            height: 8px;
+            border-radius: 4px;
+            background: #111;
+            overflow: visible;
+        }
+        .stop-handle {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            cursor: ew-resize;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.7);
+            transition: transform 0.1s;
+            z-index: 2;
+        }
+        .stop-handle:hover, .stop-handle.dragging {
+            transform: translate(-50%, -50%) scale(1.3);
+        }
 
     </style>
 </head>
@@ -442,6 +475,16 @@
             <button class="source-btn active" id="srcFractal">⬡ Fractal</button>
             <button class="source-btn" id="srcImage">🖼 Image</button>
             <button class="source-btn" id="srcVideo">▶︎ Video</button>
+        </div>
+        <div id="fractal-type-row" class="control-group" style="margin-top:8px">
+            <label for="fractalType">Fractal Type</label>
+            <select id="fractalType">
+                <option value="plasma" selected>PLASMA (Sine Waves)</option>
+                <option value="simplex">SIMPLEX FLOW</option>
+                <option value="voronoi">VORONOI CELLS</option>
+                <option value="ripple">RIPPLE</option>
+                <option value="warp">DOMAIN WARP</option>
+            </select>
         </div>
         <div id="media-upload-zone">
             <div class="upload-icon">⬆</div>
@@ -582,7 +625,7 @@
         </div>
     </div>
 
-    <div class="toggle-hint">Press [H] to toggle interface</div>
+    <div class="toggle-hint">Press [⌘H] to toggle interface</div>
 
     <!-- Hidden elements for media source feature -->
     <input type="file" id="mediaFileInput" accept="image/*,video/mp4,video/webm" style="display:none">
@@ -694,7 +737,9 @@
             ditherStyle: 'threshold',
             ditherShape: 'square',
             ditherStrength: 0.50,
-            ditherColors: 4
+            ditherColors: 4,
+            // Fractal type
+            fractalType: 'plasma'
         };
 
         let time = 0;
@@ -762,6 +807,81 @@
             const quantized = quantize(ditheredBrightness, levels);
 
             return getColorRGB(quantized);
+        }
+
+        // =============================================
+        // FRACTAL ALGORITHMS
+        // =============================================
+
+        // Lightweight 2D simplex noise (public domain)
+        const F2 = 0.5 * (Math.sqrt(3) - 1);
+        const G2 = (3 - Math.sqrt(3)) / 6;
+        const perm = new Uint8Array(512);
+        (() => { const p = new Uint8Array(256); for (let i=0;i<256;i++) p[i]=i; for (let i=255;i>0;i--) { const j=Math.random()*i|0; [p[i],p[j]]=[p[j],p[i]]; } for (let i=0;i<512;i++) perm[i]=p[i&255]; })();
+        const grad2 = [[1,1],[-1,1],[1,-1],[-1,-1],[1,0],[-1,0],[0,1],[0,-1]];
+        function snoise(x, y) {
+            const s=(x+y)*F2, i=Math.floor(x+s), j=Math.floor(y+s);
+            const t=(i+j)*G2, X0=i-t, Y0=j-t, x0=x-X0, y0=y-Y0;
+            const i1=x0>y0?1:0, j1=x0>y0?0:1;
+            const x1=x0-i1+G2, y1=y0-j1+G2, x2=x0-1+2*G2, y2=y0-1+2*G2;
+            const gi0=perm[(i+perm[j&255])&255]&7, gi1=perm[(i+i1+perm[(j+j1)&255])&255]&7, gi2=perm[(i+1+perm[(j+1)&255])&255]&7;
+            let n=0;
+            let t0=0.5-x0*x0-y0*y0; if(t0>0){t0*=t0;n+=t0*t0*(grad2[gi0][0]*x0+grad2[gi0][1]*y0);}
+            let t1=0.5-x1*x1-y1*y1; if(t1>0){t1*=t1;n+=t1*t1*(grad2[gi1][0]*x1+grad2[gi1][1]*y1);}
+            let t2=0.5-x2*x2-y2*y2; if(t2>0){t2*=t2;n+=t2*t2*(grad2[gi2][0]*x2+grad2[gi2][1]*y2);}
+            return n * 70; // returns approx -1..1
+        }
+
+        // Voronoi: random cell seeds (deterministic per session)
+        const VCELLS = 12;
+        const vseeds = Array.from({length: VCELLS}, () => [Math.random(), Math.random()]);
+
+        function getFractalBrightness(ix, iy, t, z) {
+            switch (config.fractalType) {
+                case 'simplex': {
+                    const nx = ix * z * 0.5;
+                    const ny = iy * z * 0.5;
+                    let v = snoise(nx + t * 0.3, ny + t * 0.2) * 0.5
+                          + snoise(nx * 2 + t * 0.5, ny * 2) * 0.25
+                          + snoise(nx * 4, ny * 4 + t * 0.4) * 0.125;
+                    return (v + 1) / 2;
+                }
+                case 'voronoi': {
+                    const fx = (ix / 80 + t * 0.04) % 1;
+                    const fy = (iy / 60 + t * 0.03) % 1;
+                    let minD = 999;
+                    for (let s = 0; s < VCELLS; s++) {
+                        const dx = fx - vseeds[s][0];
+                        const dy = fy - vseeds[s][1];
+                        const d = Math.sqrt(dx*dx + dy*dy);
+                        if (d < minD) minD = d;
+                    }
+                    return Math.min(1, minD * 4);
+                }
+                case 'ripple': {
+                    const cx = ix + Math.sin(t * 0.5) * 20;
+                    const cy = iy + Math.cos(t * 0.4) * 15;
+                    const dist = Math.sqrt(cx*cx + cy*cy) * z * 0.5;
+                    return (Math.sin(dist - t * 2) + 1) / 2;
+                }
+                case 'warp': {
+                    const nx = ix * z * 0.4;
+                    const ny = iy * z * 0.4;
+                    const wx = snoise(nx + t * 0.2, ny + t * 0.1);
+                    const wy = snoise(nx + 5.2 + t * 0.1, ny + 1.3);
+                    return (snoise(nx + wx, ny + wy) + 1) / 2;
+                }
+                case 'plasma':
+                default: {
+                    let v = Math.sin(ix * z + t);
+                    v += Math.sin(iy * z * 1.5 + t * 0.5);
+                    const cx2 = ix + 15 * Math.sin(t/3);
+                    const cy2 = iy + 15 * Math.cos(t/5);
+                    v += Math.sin(Math.sqrt(cx2*cx2 + cy2*cy2 + 1) * z * 2);
+                    v += Math.sin((ix + iy) * z * 0.5 + t);
+                    return (v + 4.0) / 8.0;
+                }
+            }
         }
 
         // =============================================
@@ -836,13 +956,7 @@
                     if (typeof sourceMode !== 'undefined' && sourceMode !== 'fractal' && typeof mediaReady !== 'undefined' && mediaReady) {
                         v = getBrightnessFromMedia(ix, iy);
                     } else {
-                        v = Math.sin(ix * z + t);
-                        v += Math.sin(iy * z * 1.5 + t * 0.5);
-                        const cx = ix + 15 * Math.sin(t/3);
-                        const cy = iy + 15 * Math.cos(t/5);
-                        v += Math.sin(Math.sqrt(cx*cx + cy*cy + 1) * z * 2);
-                        v += Math.sin((ix + iy) * z * 0.5 + t);
-                        v = (v + 4.0) / 8.0; // Normalize to 0–1
+                        v = getFractalBrightness(ix, iy, t, z);
                     }
 
 
@@ -890,6 +1004,10 @@
         bind('ditherStrength', 'ditherStrength');
         bind('ditherColors', 'ditherColors');
 
+        document.getElementById('fractalType').addEventListener('change', (e) => {
+            config.fractalType = e.target.value;
+        });
+
         document.getElementById('palette').addEventListener('change', (e) => {
             const val = e.target.value;
             const customPanel = document.getElementById('custom-palette-panel');
@@ -916,7 +1034,11 @@
         };
 
         let customColors = ['#031438', '#1A52A8', '#4A8FDE', '#FFFFFF'];
-        let colorWeights = [25, 25, 25, 25]; // percentages, always sum to 100
+        let colorStops = [0, 0.33, 0.66, 1.0]; // normalized 0-1 positions for each color
+
+        function equalStops(n) {
+            return Array.from({length: n}, (_, i) => i / (n - 1));
+        }
 
         function isValidHex(h) {
             return /^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(h.trim());
@@ -927,29 +1049,19 @@
             return '#' + h.toLowerCase();
         }
 
-        // Build palette from custom colors + weights using a 256-entry LUT
+        // Build palette from custom colors + stop positions using a 256-entry LUT
         function buildCustomPaletteRGB() {
             const N = 256;
             const lut = [];
             const n = customColors.length;
-            const totalWeight = colorWeights.reduce((a, b) => a + b, 0) || 1;
-            const normalizedWeights = colorWeights.map(w => w / totalWeight);
-
-            // Build cumulative stop positions
-            const stops = [0];
-            for (let i = 0; i < n; i++) {
-                stops.push(stops[i] + normalizedWeights[i]);
-            }
+            const stops = colorStops.slice(0, n);
 
             for (let i = 0; i < N; i++) {
                 const t = i / (N - 1);
                 // Find which segment we're in
                 let seg = 0;
                 for (let s = 0; s < n - 1; s++) {
-                    if (t >= stops[s] && t <= stops[s + 1]) {
-                        seg = s;
-                        break;
-                    }
+                    if (t >= stops[s] && t <= stops[s + 1]) { seg = s; break; }
                     if (t > stops[s + 1]) seg = s + 1;
                 }
                 seg = Math.min(seg, n - 2);
@@ -966,36 +1078,54 @@
             return lut;
         }
 
-        function updateGradientPreview() {
-            const preview = document.getElementById('gradient-preview');
-            if (!preview) return;
-            const stops = customColors.map((hex, i) => {
-                const totalWeight = colorWeights.reduce((a, b) => a + b, 0) || 1;
-                const pct = colorWeights.slice(0, i).reduce((a, b) => a + b, 0) / totalWeight * 100;
-                return `${hex} ${pct.toFixed(1)}%`;
-            }).join(', ');
-            preview.style.background = `linear-gradient(to right, ${stops}, ${customColors[customColors.length - 1]} 100%)`;
-        }
+        // Update the gradient stop bar (gradient fill + handle positions)
+        function updateStopBar() {
+            const bar = document.getElementById('gradient-stop-bar');
+            if (!bar) return;
+            const track = bar.querySelector('#gradient-stop-track');
+            if (!track) return;
+            const n = customColors.length;
 
-        function syncWeights() {
-            // Normalize weights so they sum to 100
-            const total = colorWeights.reduce((a, b) => a + b, 0) || 1;
-            colorWeights = colorWeights.map(w => Math.round(w / total * 100));
-            // Fix rounding drift
-            const diff = 100 - colorWeights.reduce((a, b) => a + b, 0);
-            if (diff !== 0) colorWeights[colorWeights.length - 1] += diff;
-        }
+            // Set gradient background
+            const gradStops = customColors.map((hex, i) => `${hex} ${(colorStops[i] * 100).toFixed(1)}%`).join(', ');
+            track.style.background = `linear-gradient(to right, ${gradStops})`;
 
-        function equalWeights(n) {
-            const base = Math.floor(100 / n);
-            const rem = 100 - base * n;
-            return Array.from({ length: n }, (_, i) => base + (i === n - 1 ? rem : 0));
-        }
-
-        function getWeightsUI() {
-            // Read current slider values back into colorWeights
-            document.querySelectorAll('.weight-slider').forEach((el, i) => {
-                colorWeights[i] = parseInt(el.value);
+            // Rebuild handles
+            track.querySelectorAll('.stop-handle').forEach(h => h.remove());
+            colorStops.slice(0, n).forEach((pos, i) => {
+                const handle = document.createElement('div');
+                handle.className = 'stop-handle';
+                handle.style.left = `${pos * 100}%`;
+                handle.style.background = customColors[i];
+                // First and last handles are locked to 0% and 100%
+                if (i === 0 || i === n - 1) handle.style.cursor = 'default';
+                handle.addEventListener('mousedown', (e) => {
+                    if (i === 0 || i === n - 1) return; // lock endpoints
+                    e.preventDefault();
+                    handle.classList.add('dragging');
+                    const rect = track.getBoundingClientRect();
+                    const onMove = (ev) => {
+                        let pct = (ev.clientX - rect.left) / rect.width;
+                        // Clamp between adjacent stops with a small margin
+                        const minPos = colorStops[i - 1] + 0.02;
+                        const maxPos = colorStops[i + 1] - 0.02;
+                        pct = Math.max(minPos, Math.min(maxPos, pct));
+                        colorStops[i] = pct;
+                        handle.style.left = `${pct * 100}%`;
+                        track.style.background = `linear-gradient(to right, ${customColors.map((hex, j) => `${hex} ${(colorStops[j]*100).toFixed(1)}%`).join(', ')})`;
+                        if (document.getElementById('palette').value === 'custom') {
+                            config.palette = buildCustomPaletteRGB();
+                        }
+                    };
+                    const onUp = () => {
+                        handle.classList.remove('dragging');
+                        document.removeEventListener('mousemove', onMove);
+                        document.removeEventListener('mouseup', onUp);
+                    };
+                    document.addEventListener('mousemove', onMove);
+                    document.addEventListener('mouseup', onUp);
+                });
+                track.appendChild(handle);
             });
         }
 
@@ -1003,15 +1133,17 @@
             const container = document.getElementById('color-rows');
             container.innerHTML = '';
 
-            // Insert gradient preview bar
-            const preview = document.createElement('div');
-            preview.id = 'gradient-preview';
-            container.appendChild(preview);
+            // Gradient stop bar
+            const stopBar = document.createElement('div');
+            stopBar.id = 'gradient-stop-bar';
+            const track = document.createElement('div');
+            track.id = 'gradient-stop-track';
+            stopBar.appendChild(track);
+            container.appendChild(stopBar);
 
             customColors.forEach((hex, i) => {
                 const row = document.createElement('div');
                 row.className = 'color-row';
-                row.style.flexWrap = 'wrap';
 
                 // Swatch
                 const swatch = document.createElement('div');
@@ -1027,7 +1159,7 @@
                     hexInputEl.value = e.target.value;
                     if (document.getElementById('palette').value === 'custom') {
                         config.palette = buildCustomPaletteRGB();
-                        updateGradientPreview();
+                        updateStopBar();
                     }
                 });
                 swatch.appendChild(picker);
@@ -1050,7 +1182,7 @@
                         picker.value = normalized;
                         if (document.getElementById('palette').value === 'custom') {
                             config.palette = buildCustomPaletteRGB();
-                            updateGradientPreview();
+                            updateStopBar();
                         }
                     }
                 });
@@ -1058,39 +1190,10 @@
 
                 row.appendChild(swatch);
                 row.appendChild(hexInputEl);
-
-                // Weight slider row
-                const weightWrap = document.createElement('div');
-                weightWrap.className = 'weight-slider-wrap';
-                weightWrap.style.width = '100%';
-
-                const weightSlider = document.createElement('input');
-                weightSlider.type = 'range';
-                weightSlider.min = 1;
-                weightSlider.max = 99;
-                weightSlider.value = colorWeights[i] || Math.round(100 / customColors.length);
-                weightSlider.className = 'weight-slider';
-
-                const weightLabel = document.createElement('span');
-                weightLabel.className = 'weight-pct';
-                weightLabel.textContent = `${weightSlider.value}%`;
-
-                weightSlider.addEventListener('input', (e) => {
-                    colorWeights[i] = parseInt(e.target.value);
-                    weightLabel.textContent = `${e.target.value}%`;
-                    if (document.getElementById('palette').value === 'custom') {
-                        config.palette = buildCustomPaletteRGB();
-                        updateGradientPreview();
-                    }
-                });
-
-                weightWrap.appendChild(weightSlider);
-                weightWrap.appendChild(weightLabel);
-                row.appendChild(weightWrap);
                 container.appendChild(row);
             });
 
-            updateGradientPreview();
+            updateStopBar();
         }
 
         document.getElementById('customColorCount').addEventListener('change', (e) => {
@@ -1103,7 +1206,7 @@
             } else {
                 customColors = customColors.slice(0, newCount);
             }
-            colorWeights = equalWeights(newCount);
+            colorStops = equalStops(newCount);
             renderColorRows();
             if (document.getElementById('palette').value === 'custom') {
                 config.palette = buildCustomPaletteRGB();
@@ -1115,7 +1218,7 @@
                 const preset = PALETTE_PRESETS[btn.dataset.preset];
                 if (!preset) return;
                 customColors = [...preset];
-                colorWeights = equalWeights(preset.length);
+                colorStops = equalStops(preset.length);
                 const countSelect = document.getElementById('customColorCount');
                 const opts = [...countSelect.options].map(o => parseInt(o.value));
                 const closest = opts.includes(preset.length) ? preset.length : opts[opts.length - 1];
@@ -1248,8 +1351,9 @@ ${shapes}</svg>`;
             return {
                 paletteKey: document.getElementById('palette').value,
                 customColors: [...customColors],
-                colorWeights: [...colorWeights],
+                colorStops: [...colorStops],
                 customColorCount: customColors.length,
+                fractalType: config.fractalType,
                 blockSize: config.blockSize,
                 gap: config.gap,
                 speed: config.speed,
@@ -1269,7 +1373,17 @@ ${shapes}</svg>`;
             paletteEl.value = snap.paletteKey || 'combined';
             if (snap.paletteKey === 'custom') {
                 customColors = snap.customColors || customColors;
-                colorWeights = snap.colorWeights || equalWeights(customColors.length);
+                // Support old presets with colorWeights, migrate them to colorStops
+                if (snap.colorStops) {
+                    colorStops = snap.colorStops;
+                } else if (snap.colorWeights) {
+                    const total = snap.colorWeights.reduce((a, b) => a + b, 0) || 1;
+                    let cum = 0;
+                    colorStops = snap.colorWeights.map(w => { const s = cum / total; cum += w; return s; });
+                    colorStops[colorStops.length - 1] = 1.0; // ensure last stop is exactly 1
+                } else {
+                    colorStops = equalStops(customColors.length);
+                }
                 document.getElementById('customColorCount').value = snap.customColorCount || customColors.length;
                 renderColorRows();
                 document.getElementById('custom-palette-panel').classList.add('visible');
@@ -1305,6 +1419,12 @@ ${shapes}</svg>`;
             setSelect('ditherPattern', 'ditherPattern', snap.ditherPattern);
             setSelect('ditherStyle', 'ditherStyle', snap.ditherStyle);
             setSelect('ditherShape', 'ditherShape', snap.ditherShape);
+            // Restore fractal type
+            if (snap.fractalType) {
+                config.fractalType = snap.fractalType;
+                const fractalTypeEl = document.getElementById('fractalType');
+                if (fractalTypeEl) fractalTypeEl.value = snap.fractalType;
+            }
         }
 
         function refreshPresetsUI() {
@@ -1382,11 +1502,13 @@ ${shapes}</svg>`;
                 uploadZone.style.display = 'none';
                 videoControls.classList.remove('visible');
                 fractalControls.style.display = '';
+                document.getElementById('fractal-type-row').style.display = '';
                 sourceVideo.pause();
                 document.getElementById('media-filename').style.display = 'none';
             } else {
                 uploadZone.style.display = 'block';
                 fractalControls.style.display = 'none';
+                document.getElementById('fractal-type-row').style.display = 'none';
                 const hint = document.getElementById('upload-hint');
                 if (mode === 'image') {
                     hint.innerHTML = 'Drop an image here<br>or click to browse';
@@ -1505,7 +1627,8 @@ ${shapes}</svg>`;
         // =============================================
 
         window.addEventListener('keydown', (e) => {
-            if (e.key.toLowerCase() === 'h') {
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'h') {
+                e.preventDefault();
                 document.getElementById('ui-panel').classList.toggle('hidden');
             }
         });
