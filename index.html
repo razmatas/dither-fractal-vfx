@@ -113,6 +113,7 @@
         input[type="range"] {
             width: 100%;
             -webkit-appearance: none;
+            appearance: none;
             background: rgba(255, 255, 255, 0.05);
             height: 6px;
             border-radius: 3px;
@@ -244,6 +245,177 @@
             border-color: rgba(255,255,255,0.25);
         }
 
+        /* Weight slider inside color rows */
+        .weight-slider-wrap {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 5px;
+        }
+        .weight-slider-wrap input[type="range"] {
+            flex: 1;
+            height: 4px;
+        }
+        .weight-pct {
+            font-size: 10px;
+            color: #888;
+            min-width: 30px;
+            text-align: right;
+            font-family: inherit;
+        }
+
+        /* Gradient preview bar */
+        #gradient-preview {
+            width: 100%;
+            height: 10px;
+            border-radius: 4px;
+            margin-bottom: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* Export section */
+        .export-row {
+            display: flex;
+            gap: 8px;
+        }
+        .action-btn {
+            flex: 1;
+            background: rgba(255,255,255,0.06);
+            color: rgba(255,255,255,0.8);
+            border: 1px solid rgba(255,255,255,0.12);
+            padding: 8px 6px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-family: inherit;
+            cursor: pointer;
+            letter-spacing: 0.5px;
+            transition: all 0.15s;
+            text-align: center;
+        }
+        .action-btn:hover {
+            background: rgba(255,255,255,0.12);
+            color: #fff;
+            border-color: rgba(255,255,255,0.25);
+        }
+        .action-btn.primary {
+            background: rgba(74,143,222,0.15);
+            border-color: rgba(74,143,222,0.4);
+            color: #4A8FDE;
+        }
+        .action-btn.primary:hover {
+            background: rgba(74,143,222,0.25);
+            color: #7BB3E8;
+        }
+        .action-btn.danger {
+            background: rgba(196,48,48,0.1);
+            border-color: rgba(196,48,48,0.3);
+            color: #C43030;
+        }
+        .action-btn.danger:hover {
+            background: rgba(196,48,48,0.2);
+        }
+
+        /* Save / Load */
+        .preset-save-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .preset-name-input {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 7px 10px;
+            border-radius: 4px;
+            outline: none;
+            font-size: 12px;
+            font-family: inherit;
+            min-width: 0;
+        }
+        .preset-name-input:focus {
+            border-color: rgba(74,143,222,0.5);
+        }
+        .preset-load-row {
+            display: flex;
+            gap: 8px;
+        }
+        .preset-load-row select {
+            flex: 1;
+            min-width: 0;
+        }
+        #no-presets-hint {
+            font-size: 10px;
+            color: rgba(255,255,255,0.25);
+            text-align: center;
+            padding: 6px 0;
+            display: none;
+        }
+
+        /* Media Source */
+        .source-toggle-row {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+        .source-btn {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            color: rgba(255,255,255,0.5);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 7px 4px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-family: inherit;
+            cursor: pointer;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            transition: all 0.15s;
+            text-align: center;
+        }
+        .source-btn.active {
+            background: rgba(74,143,222,0.2);
+            color: #fff;
+            border-color: rgba(74,143,222,0.5);
+        }
+        #media-upload-zone {
+            display: none;
+            border: 2px dashed rgba(255,255,255,0.15);
+            border-radius: 6px;
+            padding: 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s;
+            margin-bottom: 10px;
+        }
+        #media-upload-zone:hover, #media-upload-zone.drag-over {
+            border-color: rgba(74,143,222,0.6);
+        }
+        #media-upload-zone p {
+            margin: 0 0 8px 0;
+            font-size: 11px;
+            color: rgba(255,255,255,0.4);
+            line-height: 1.5;
+        }
+        #media-upload-zone .upload-icon {
+            font-size: 22px;
+            margin-bottom: 6px;
+        }
+        #media-filename {
+            font-size: 10px;
+            color: #4A8FDE;
+            margin-top: 4px;
+            word-break: break-all;
+            display: none;
+        }
+        #video-controls {
+            display: none;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        #video-controls.visible {
+            display: flex;
+        }
         .toggle-hint {
             position: absolute;
             bottom: 20px;
@@ -262,9 +434,27 @@
 
     <div id="ui-panel">
         <h1>System Override</h1>
-        
-        <div class="control-group">
-            <label for="palette">Color Engine</label>
+
+        <!-- SOURCE MODE -->
+        <hr class="section-divider" style="margin-top:0">
+        <div class="section-label">Source</div>
+        <div class="source-toggle-row">
+            <button class="source-btn active" id="srcFractal">⬡ Fractal</button>
+            <button class="source-btn" id="srcImage">🖼 Image</button>
+            <button class="source-btn" id="srcVideo">▶︎ Video</button>
+        </div>
+        <div id="media-upload-zone">
+            <div class="upload-icon">⬆</div>
+            <p id="upload-hint">Drop an image or video here<br>or click to browse</p>
+            <div id="media-filename"></div>
+        </div>
+        <div id="video-controls">
+            <button class="action-btn" id="videoPlayPause">⏸ Pause</button>
+            <button class="action-btn" id="videoLoop">↺ Loop: On</button>
+        </div>
+
+        <hr class="section-divider">
+        <div class="section-label">Color Engine</div>
             <select id="palette">
                 <option value="combined">NEON FRACTAL (Mixed)</option>
                 <option value="cobalt">COBALT CORE (Blue)</option>
@@ -298,6 +488,7 @@
             </div>
         </div>
 
+        <div id="fractal-only-controls">
         <div class="control-group">
             <label for="blockSize">Block Size <span id="blockSize-val">12px</span></label>
             <input type="range" id="blockSize" min="4" max="40" step="2" value="12">
@@ -317,6 +508,7 @@
             <label for="zoom">Magnification <span id="zoom-val">1.0</span></label>
             <input type="range" id="zoom" min="0.1" max="4" step="0.1" value="1.0">
         </div>
+        </div><!-- /fractal-only-controls -->
 
         <div class="control-group">
             <label for="contrast">Color Depth <span id="contrast-val">1.8</span></label>
@@ -365,9 +557,36 @@
             <label for="ditherColors">Dither Colors <span id="ditherColors-val">4</span></label>
             <input type="range" id="ditherColors" min="2" max="16" step="1" value="4">
         </div>
+
+        <!-- EXPORT -->
+        <hr class="section-divider">
+        <div class="section-label">Export</div>
+        <div class="export-row">
+            <button class="action-btn primary" id="exportPng">⬇ PNG</button>
+            <button class="action-btn primary" id="exportSvg">⬇ SVG</button>
+        </div>
+
+        <!-- SAVE / LOAD -->
+        <hr class="section-divider">
+        <div class="section-label">Presets</div>
+        <div class="preset-save-row">
+            <input type="text" class="preset-name-input" id="presetNameInput" placeholder="Preset name…">
+            <button class="action-btn primary" id="savePresetBtn">💾 Save</button>
+        </div>
+        <div id="no-presets-hint">No saved presets yet</div>
+        <div class="preset-load-row" id="preset-load-row" style="display:none">
+            <select id="presetSelect"></select>
+            <button class="action-btn" id="loadPresetBtn">Load</button>
+            <button class="action-btn danger" id="deletePresetBtn">✕</button>
+        </div>
     </div>
 
     <div class="toggle-hint">Press [H] to toggle interface</div>
+
+    <!-- Hidden elements for media source feature -->
+    <input type="file" id="mediaFileInput" accept="image/*,video/mp4,video/webm" style="display:none">
+    <video id="sourceVideo" style="display:none" playsinline loop></video>
+    <canvas id="offscreenCanvas" style="display:none"></canvas>
 
     <script>
         const canvas = document.getElementById('plasmaCanvas');
@@ -594,17 +813,20 @@
                     const x = ix * config.blockSize;
                     const y = iy * config.blockSize;
 
-                    // Pass 1: Compute fractal plasma brightness (existing math — untouched)
-                    let v = Math.sin(ix * z + t);
-                    v += Math.sin(iy * z * 1.5 + t * 0.5);
-                    
-                    const cx = ix + 15 * Math.sin(t/3);
-                    const cy = iy + 15 * Math.cos(t/5);
-                    v += Math.sin(Math.sqrt(cx*cx + cy*cy + 1) * z * 2);
-                    
-                    v += Math.sin((ix + iy) * z * 0.5 + t);
-                    
-                    v = (v + 4.0) / 8.0; // Normalize to 0–1
+                    // Pass 1: Brightness source — fractal or uploaded media
+                    let v;
+                    if (typeof sourceMode !== 'undefined' && sourceMode !== 'fractal' && typeof mediaReady !== 'undefined' && mediaReady) {
+                        v = getBrightnessFromMedia(ix, iy);
+                    } else {
+                        v = Math.sin(ix * z + t);
+                        v += Math.sin(iy * z * 1.5 + t * 0.5);
+                        const cx = ix + 15 * Math.sin(t/3);
+                        const cy = iy + 15 * Math.cos(t/5);
+                        v += Math.sin(Math.sqrt(cx*cx + cy*cy + 1) * z * 2);
+                        v += Math.sin((ix + iy) * z * 0.5 + t);
+                        v = (v + 4.0) / 8.0; // Normalize to 0–1
+                    }
+
 
                     // Pass 2: Apply dither to decide color
                     const rgb = getDitheredColor(v, ix, iy);
@@ -667,7 +889,7 @@
         // CUSTOM PALETTE EDITOR
         // =============================================
 
-        const PRESETS = {
+        const PALETTE_PRESETS = {
             bw:      ['#000000', '#ffffff'],
             gameboy: ['#0f380f', '#306230', '#8bac0f', '#9bbc0f'],
             cga:     ['#000000', '#55ffff', '#ff55ff', '#ffffff'],
@@ -675,32 +897,105 @@
             neon:    ['#0d0d0d', '#ff00cc', '#00ffcc', '#ffee00', '#ffffff']
         };
 
-        // Stores the current custom hex colors (as strings)
         let customColors = ['#031438', '#1A52A8', '#4A8FDE', '#FFFFFF'];
+        let colorWeights = [25, 25, 25, 25]; // percentages, always sum to 100
 
         function isValidHex(h) {
             return /^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(h.trim());
         }
-
         function normalizeHex(h) {
             h = h.trim().replace('#', '');
             if (h.length === 3) h = h.split('').map(c => c+c).join('');
             return '#' + h.toLowerCase();
         }
 
+        // Build palette from custom colors + weights using a 256-entry LUT
         function buildCustomPaletteRGB() {
-            return customColors.map(hexToRgb);
+            const N = 256;
+            const lut = [];
+            const n = customColors.length;
+            const totalWeight = colorWeights.reduce((a, b) => a + b, 0) || 1;
+            const normalizedWeights = colorWeights.map(w => w / totalWeight);
+
+            // Build cumulative stop positions
+            const stops = [0];
+            for (let i = 0; i < n; i++) {
+                stops.push(stops[i] + normalizedWeights[i]);
+            }
+
+            for (let i = 0; i < N; i++) {
+                const t = i / (N - 1);
+                // Find which segment we're in
+                let seg = 0;
+                for (let s = 0; s < n - 1; s++) {
+                    if (t >= stops[s] && t <= stops[s + 1]) {
+                        seg = s;
+                        break;
+                    }
+                    if (t > stops[s + 1]) seg = s + 1;
+                }
+                seg = Math.min(seg, n - 2);
+                const span = stops[seg + 1] - stops[seg];
+                const f = span > 0 ? (t - stops[seg]) / span : 0;
+                const c1 = hexToRgb(customColors[seg]);
+                const c2 = hexToRgb(customColors[Math.min(seg + 1, n - 1)]);
+                lut.push([
+                    c1[0] + (c2[0] - c1[0]) * f,
+                    c1[1] + (c2[1] - c1[1]) * f,
+                    c1[2] + (c2[2] - c1[2]) * f
+                ]);
+            }
+            return lut;
+        }
+
+        function updateGradientPreview() {
+            const preview = document.getElementById('gradient-preview');
+            if (!preview) return;
+            const stops = customColors.map((hex, i) => {
+                const totalWeight = colorWeights.reduce((a, b) => a + b, 0) || 1;
+                const pct = colorWeights.slice(0, i).reduce((a, b) => a + b, 0) / totalWeight * 100;
+                return `${hex} ${pct.toFixed(1)}%`;
+            }).join(', ');
+            preview.style.background = `linear-gradient(to right, ${stops}, ${customColors[customColors.length - 1]} 100%)`;
+        }
+
+        function syncWeights() {
+            // Normalize weights so they sum to 100
+            const total = colorWeights.reduce((a, b) => a + b, 0) || 1;
+            colorWeights = colorWeights.map(w => Math.round(w / total * 100));
+            // Fix rounding drift
+            const diff = 100 - colorWeights.reduce((a, b) => a + b, 0);
+            if (diff !== 0) colorWeights[colorWeights.length - 1] += diff;
+        }
+
+        function equalWeights(n) {
+            const base = Math.floor(100 / n);
+            const rem = 100 - base * n;
+            return Array.from({ length: n }, (_, i) => base + (i === n - 1 ? rem : 0));
+        }
+
+        function getWeightsUI() {
+            // Read current slider values back into colorWeights
+            document.querySelectorAll('.weight-slider').forEach((el, i) => {
+                colorWeights[i] = parseInt(el.value);
+            });
         }
 
         function renderColorRows() {
             const container = document.getElementById('color-rows');
             container.innerHTML = '';
 
+            // Insert gradient preview bar
+            const preview = document.createElement('div');
+            preview.id = 'gradient-preview';
+            container.appendChild(preview);
+
             customColors.forEach((hex, i) => {
                 const row = document.createElement('div');
                 row.className = 'color-row';
+                row.style.flexWrap = 'wrap';
 
-                // Swatch (click to open color picker)
+                // Swatch
                 const swatch = document.createElement('div');
                 swatch.className = 'color-swatch-btn';
                 swatch.style.background = hex;
@@ -714,6 +1009,7 @@
                     hexInputEl.value = e.target.value;
                     if (document.getElementById('palette').value === 'custom') {
                         config.palette = buildCustomPaletteRGB();
+                        updateGradientPreview();
                     }
                 });
                 swatch.appendChild(picker);
@@ -726,7 +1022,6 @@
                 hexInputEl.maxLength = 7;
                 hexInputEl.placeholder = '#000000';
                 hexInputEl.spellcheck = false;
-
                 hexInputEl.addEventListener('input', (e) => {
                     let raw = e.target.value.trim();
                     if (!raw.startsWith('#')) raw = '#' + raw;
@@ -737,48 +1032,73 @@
                         picker.value = normalized;
                         if (document.getElementById('palette').value === 'custom') {
                             config.palette = buildCustomPaletteRGB();
+                            updateGradientPreview();
                         }
                     }
                 });
-
-                // Sync on blur to clean up partial hex
-                hexInputEl.addEventListener('blur', (e) => {
-                    e.target.value = customColors[i];
-                });
+                hexInputEl.addEventListener('blur', (e) => { e.target.value = customColors[i]; });
 
                 row.appendChild(swatch);
                 row.appendChild(hexInputEl);
+
+                // Weight slider row
+                const weightWrap = document.createElement('div');
+                weightWrap.className = 'weight-slider-wrap';
+                weightWrap.style.width = '100%';
+
+                const weightSlider = document.createElement('input');
+                weightSlider.type = 'range';
+                weightSlider.min = 1;
+                weightSlider.max = 99;
+                weightSlider.value = colorWeights[i] || Math.round(100 / customColors.length);
+                weightSlider.className = 'weight-slider';
+
+                const weightLabel = document.createElement('span');
+                weightLabel.className = 'weight-pct';
+                weightLabel.textContent = `${weightSlider.value}%`;
+
+                weightSlider.addEventListener('input', (e) => {
+                    colorWeights[i] = parseInt(e.target.value);
+                    weightLabel.textContent = `${e.target.value}%`;
+                    if (document.getElementById('palette').value === 'custom') {
+                        config.palette = buildCustomPaletteRGB();
+                        updateGradientPreview();
+                    }
+                });
+
+                weightWrap.appendChild(weightSlider);
+                weightWrap.appendChild(weightLabel);
+                row.appendChild(weightWrap);
                 container.appendChild(row);
             });
+
+            updateGradientPreview();
         }
 
-        // Color count selector
         document.getElementById('customColorCount').addEventListener('change', (e) => {
             const newCount = parseInt(e.target.value);
             const oldCount = customColors.length;
             if (newCount > oldCount) {
-                // Fill extra slots by repeating last color
                 for (let i = oldCount; i < newCount; i++) {
                     customColors.push(customColors[oldCount - 1] || '#ffffff');
                 }
             } else {
                 customColors = customColors.slice(0, newCount);
             }
+            colorWeights = equalWeights(newCount);
             renderColorRows();
             if (document.getElementById('palette').value === 'custom') {
                 config.palette = buildCustomPaletteRGB();
             }
         });
 
-        // Preset buttons
         document.querySelectorAll('.preset-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                const preset = PRESETS[btn.dataset.preset];
+                const preset = PALETTE_PRESETS[btn.dataset.preset];
                 if (!preset) return;
                 customColors = [...preset];
-                // Sync the color count selector
+                colorWeights = equalWeights(preset.length);
                 const countSelect = document.getElementById('customColorCount');
-                // Find closest available option
                 const opts = [...countSelect.options].map(o => parseInt(o.value));
                 const closest = opts.includes(preset.length) ? preset.length : opts[opts.length - 1];
                 countSelect.value = closest;
@@ -789,22 +1109,394 @@
             });
         });
 
-        // Initialize the color rows on page load
         renderColorRows();
 
         // Dither controls
-        document.getElementById('ditherPattern').addEventListener('change', (e) => {
-            config.ditherPattern = e.target.value;
-        });
-        document.getElementById('ditherStyle').addEventListener('change', (e) => {
-            config.ditherStyle = e.target.value;
-        });
-        document.getElementById('ditherShape').addEventListener('change', (e) => {
-            config.ditherShape = e.target.value;
+        document.getElementById('ditherPattern').addEventListener('change', (e) => { config.ditherPattern = e.target.value; });
+        document.getElementById('ditherStyle').addEventListener('change', (e) => { config.ditherStyle = e.target.value; });
+        document.getElementById('ditherShape').addEventListener('change', (e) => { config.ditherShape = e.target.value; });
+
+        // =============================================
+        // EXPORT (Feature 2)
+        // =============================================
+
+        document.getElementById('exportPng').addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = `dither-fractal-${Date.now()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
         });
 
+        document.getElementById('exportSvg').addEventListener('click', () => {
+            const btn = document.getElementById('exportSvg');
+            btn.textContent = 'Generating…';
+            btn.disabled = true;
 
-        // Toggle HUD
+            // Use setTimeout to let the UI update before the (potentially slow) loop
+            setTimeout(() => {
+                const w = canvas.width, h = canvas.height;
+                const blockSize = config.blockSize;
+                const cols = Math.ceil(w / blockSize);
+                const rows = Math.ceil(h / blockSize);
+                const baseSize = blockSize - config.gap;
+                const isScaled = config.ditherStyle === 'scaled' && config.ditherPattern !== 'none';
+                const z = 0.02 * config.zoom;
+                const t = time;
+
+                let shapes = '';
+
+                for (let iy = 0; iy < rows; iy++) {
+                    for (let ix = 0; ix < cols; ix++) {
+                        const x = ix * blockSize;
+                        const y = iy * blockSize;
+
+                        let v;
+                        if (sourceMode !== 'fractal' && mediaReady) {
+                            v = getBrightnessFromMedia(ix, iy);
+                        } else {
+                            v = Math.sin(ix * z + t);
+                            v += Math.sin(iy * z * 1.5 + t * 0.5);
+                            const cx = ix + 15 * Math.sin(t/3);
+                            const cy = iy + 15 * Math.cos(t/5);
+                            v += Math.sin(Math.sqrt(cx*cx + cy*cy + 1) * z * 2);
+                            v += Math.sin((ix + iy) * z * 0.5 + t);
+                            v = (v + 4.0) / 8.0;
+                        }
+
+                        const rgb = getDitheredColor(v, ix, iy);
+                        const fill = `rgb(${rgb[0]|0},${rgb[1]|0},${rgb[2]|0})`;
+
+                        let shapeEl = '';
+                        if (isScaled) {
+                            const scaleFactor = Math.max(0.1, v);
+                            const sz = baseSize * scaleFactor;
+                            const off = (baseSize - sz) / 2;
+                            const sx = x + off, sy = y + off;
+                            if (config.ditherShape === 'circle') {
+                                shapeEl = `<circle cx="${(sx + sz/2).toFixed(1)}" cy="${(sy + sz/2).toFixed(1)}" r="${(sz/2).toFixed(1)}" fill="${fill}"/>`;
+                            } else if (config.ditherShape === 'diamond') {
+                                const hx = sx + sz/2, hy = sy + sz/2;
+                                shapeEl = `<polygon points="${hx.toFixed(1)},${sy.toFixed(1)} ${(sx+sz).toFixed(1)},${hy.toFixed(1)} ${hx.toFixed(1)},${(sy+sz).toFixed(1)} ${sx.toFixed(1)},${hy.toFixed(1)}" fill="${fill}"/>`;
+                            } else {
+                                shapeEl = `<rect x="${sx.toFixed(1)}" y="${sy.toFixed(1)}" width="${sz.toFixed(1)}" height="${sz.toFixed(1)}" fill="${fill}"/>`;
+                            }
+                        } else {
+                            if (config.ditherShape === 'circle') {
+                                shapeEl = `<circle cx="${(x+baseSize/2).toFixed(1)}" cy="${(y+baseSize/2).toFixed(1)}" r="${(baseSize/2).toFixed(1)}" fill="${fill}"/>`;
+                            } else if (config.ditherShape === 'diamond') {
+                                const hx = x + baseSize/2, hy = y + baseSize/2;
+                                shapeEl = `<polygon points="${hx.toFixed(1)},${y.toFixed(1)} ${(x+baseSize).toFixed(1)},${hy.toFixed(1)} ${hx.toFixed(1)},${(y+baseSize).toFixed(1)} ${x.toFixed(1)},${hy.toFixed(1)}" fill="${fill}"/>`;
+                            } else {
+                                shapeEl = `<rect x="${x}" y="${y}" width="${baseSize}" height="${baseSize}" fill="${fill}"/>`;
+                            }
+                        }
+                        shapes += shapeEl + '\n';
+                    }
+                }
+
+                const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+  <rect width="${w}" height="${h}" fill="#050508"/>
+${shapes}</svg>`;
+
+                const blob = new Blob([svg], { type: 'image/svg+xml' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.download = `dither-fractal-${Date.now()}.svg`;
+                link.href = url;
+                link.click();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+                btn.textContent = '⬇ SVG';
+                btn.disabled = false;
+            }, 50);
+        });
+
+        // =============================================
+        // SAVE / LOAD PRESETS (Feature 3)
+        // =============================================
+
+        const STORAGE_KEY = 'dither-fractal-presets';
+
+        function getAllPresets() {
+            try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
+            catch { return {}; }
+        }
+        function saveAllPresets(obj) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+        }
+
+        function buildPresetSnapshot() {
+            return {
+                paletteKey: document.getElementById('palette').value,
+                customColors: [...customColors],
+                colorWeights: [...colorWeights],
+                customColorCount: customColors.length,
+                blockSize: config.blockSize,
+                gap: config.gap,
+                speed: config.speed,
+                zoom: config.zoom,
+                contrast: config.contrast,
+                ditherPattern: config.ditherPattern,
+                ditherStyle: config.ditherStyle,
+                ditherShape: config.ditherShape,
+                ditherStrength: config.ditherStrength,
+                ditherColors: config.ditherColors
+            };
+        }
+
+        function applyPresetSnapshot(snap) {
+            // Restore palette
+            const paletteEl = document.getElementById('palette');
+            paletteEl.value = snap.paletteKey || 'combined';
+            if (snap.paletteKey === 'custom') {
+                customColors = snap.customColors || customColors;
+                colorWeights = snap.colorWeights || equalWeights(customColors.length);
+                document.getElementById('customColorCount').value = snap.customColorCount || customColors.length;
+                renderColorRows();
+                document.getElementById('custom-palette-panel').classList.add('visible');
+                config.palette = buildCustomPaletteRGB();
+            } else {
+                document.getElementById('custom-palette-panel').classList.remove('visible');
+                config.palette = palettes[snap.paletteKey] || palettes.combined;
+            }
+
+            // Restore sliders
+            const setSlider = (id, key, val, suffix = '') => {
+                const el = document.getElementById(id);
+                if (el && val !== undefined) {
+                    el.value = val;
+                    config[key] = parseFloat(val);
+                    const disp = document.getElementById(`${id}-val`);
+                    if (disp) disp.textContent = val + suffix;
+                }
+            };
+            setSlider('blockSize', 'blockSize', snap.blockSize, 'px');
+            setSlider('gap', 'gap', snap.gap, 'px');
+            setSlider('speed', 'speed', snap.speed);
+            setSlider('zoom', 'zoom', snap.zoom);
+            setSlider('contrast', 'contrast', snap.contrast);
+            setSlider('ditherStrength', 'ditherStrength', snap.ditherStrength);
+            setSlider('ditherColors', 'ditherColors', snap.ditherColors);
+
+            // Restore selects
+            const setSelect = (id, key, val) => {
+                const el = document.getElementById(id);
+                if (el && val !== undefined) { el.value = val; config[key] = val; }
+            };
+            setSelect('ditherPattern', 'ditherPattern', snap.ditherPattern);
+            setSelect('ditherStyle', 'ditherStyle', snap.ditherStyle);
+            setSelect('ditherShape', 'ditherShape', snap.ditherShape);
+        }
+
+        function refreshPresetsUI() {
+            const presets = getAllPresets();
+            const keys = Object.keys(presets);
+            const noHint = document.getElementById('no-presets-hint');
+            const loadRow = document.getElementById('preset-load-row');
+            const sel = document.getElementById('presetSelect');
+
+            if (keys.length === 0) {
+                noHint.style.display = 'block';
+                loadRow.style.display = 'none';
+            } else {
+                noHint.style.display = 'none';
+                loadRow.style.display = 'flex';
+                sel.innerHTML = keys.map(k => `<option value="${k}">${k}</option>`).join('');
+            }
+        }
+
+        document.getElementById('savePresetBtn').addEventListener('click', () => {
+            const name = document.getElementById('presetNameInput').value.trim();
+            if (!name) { document.getElementById('presetNameInput').focus(); return; }
+            const presets = getAllPresets();
+            presets[name] = buildPresetSnapshot();
+            saveAllPresets(presets);
+            refreshPresetsUI();
+            document.getElementById('presetSelect').value = name;
+            document.getElementById('presetNameInput').value = '';
+        });
+
+        document.getElementById('loadPresetBtn').addEventListener('click', () => {
+            const name = document.getElementById('presetSelect').value;
+            const presets = getAllPresets();
+            if (presets[name]) applyPresetSnapshot(presets[name]);
+        });
+
+        document.getElementById('deletePresetBtn').addEventListener('click', () => {
+            const name = document.getElementById('presetSelect').value;
+            const presets = getAllPresets();
+            delete presets[name];
+            saveAllPresets(presets);
+            refreshPresetsUI();
+        });
+
+        refreshPresetsUI();
+
+        // =============================================
+        // MEDIA SOURCE (Feature 4)
+        // =============================================
+
+        let sourceMode = 'fractal'; // 'fractal' | 'image' | 'video'
+        let mediaReady = false;
+
+        const sourceVideo = document.getElementById('sourceVideo');
+        const offscreenCanvas = document.getElementById('offscreenCanvas');
+        const offCtx = offscreenCanvas.getContext('2d');
+        const mediaFileInput = document.getElementById('mediaFileInput');
+
+        function setSourceMode(mode) {
+            sourceMode = mode;
+            mediaReady = false;
+
+            // Update toggle button states
+            document.getElementById('srcFractal').classList.toggle('active', mode === 'fractal');
+            document.getElementById('srcImage').classList.toggle('active', mode === 'image');
+            document.getElementById('srcVideo').classList.toggle('active', mode === 'video');
+
+            // Show/hide upload zone
+            const uploadZone = document.getElementById('media-upload-zone');
+            const videoControls = document.getElementById('video-controls');
+            const fractalControls = document.getElementById('fractal-only-controls');
+
+            if (mode === 'fractal') {
+                uploadZone.style.display = 'none';
+                videoControls.classList.remove('visible');
+                fractalControls.style.display = '';
+                sourceVideo.pause();
+                document.getElementById('media-filename').style.display = 'none';
+            } else {
+                uploadZone.style.display = 'block';
+                fractalControls.style.display = 'none';
+                const hint = document.getElementById('upload-hint');
+                if (mode === 'image') {
+                    hint.innerHTML = 'Drop an image here<br>or click to browse';
+                    mediaFileInput.accept = 'image/*';
+                    videoControls.classList.remove('visible');
+                    sourceVideo.pause();
+                } else {
+                    hint.innerHTML = 'Drop an MP4/WebM video here<br>or click to browse';
+                    mediaFileInput.accept = 'video/mp4,video/webm';
+                }
+            }
+        }
+
+        document.getElementById('srcFractal').addEventListener('click', () => setSourceMode('fractal'));
+        document.getElementById('srcImage').addEventListener('click', () => setSourceMode('image'));
+        document.getElementById('srcVideo').addEventListener('click', () => setSourceMode('video'));
+
+        // File upload via click
+        document.getElementById('media-upload-zone').addEventListener('click', () => {
+            if (sourceMode !== 'fractal') mediaFileInput.click();
+        });
+
+        // Drag & drop
+        document.getElementById('media-upload-zone').addEventListener('dragover', (e) => {
+            e.preventDefault();
+            document.getElementById('media-upload-zone').classList.add('drag-over');
+        });
+        document.getElementById('media-upload-zone').addEventListener('dragleave', () => {
+            document.getElementById('media-upload-zone').classList.remove('drag-over');
+        });
+        document.getElementById('media-upload-zone').addEventListener('drop', (e) => {
+            e.preventDefault();
+            document.getElementById('media-upload-zone').classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (file) handleMediaFile(file);
+        });
+
+        mediaFileInput.addEventListener('change', (e) => {
+            if (e.target.files[0]) handleMediaFile(e.target.files[0]);
+        });
+
+        function handleMediaFile(file) {
+            const isVideo = file.type.startsWith('video/');
+            const isImage = file.type.startsWith('image/');
+            if (!isVideo && !isImage) return;
+
+            const fn = document.getElementById('media-filename');
+            fn.textContent = file.name;
+            fn.style.display = 'block';
+
+            const url = URL.createObjectURL(file);
+
+            if (isImage && sourceMode === 'image') {
+                const img = new Image();
+                img.onload = () => {
+                    offscreenCanvas.width = img.width;
+                    offscreenCanvas.height = img.height;
+                    offCtx.drawImage(img, 0, 0);
+                    mediaReady = true;
+                    URL.revokeObjectURL(url);
+                };
+                img.src = url;
+            } else if (isVideo && sourceMode === 'video') {
+                sourceVideo.src = url;
+                sourceVideo.play();
+                sourceVideo.onloadeddata = () => {
+                    offscreenCanvas.width = sourceVideo.videoWidth;
+                    offscreenCanvas.height = sourceVideo.videoHeight;
+                    mediaReady = true;
+                };
+                document.getElementById('video-controls').classList.add('visible');
+            }
+        }
+
+        // Video play/pause
+        document.getElementById('videoPlayPause').addEventListener('click', () => {
+            const btn = document.getElementById('videoPlayPause');
+            if (sourceVideo.paused) {
+                sourceVideo.play();
+                btn.textContent = '⏸ Pause';
+            } else {
+                sourceVideo.pause();
+                btn.textContent = '▶ Play';
+            }
+        });
+
+        // Video loop toggle
+        document.getElementById('videoLoop').addEventListener('click', () => {
+            sourceVideo.loop = !sourceVideo.loop;
+            document.getElementById('videoLoop').textContent = `↺ Loop: ${sourceVideo.loop ? 'On' : 'Off'}`;
+        });
+
+        // Sample brightness from media at grid position (ix, iy)
+        function getBrightnessFromMedia(ix, iy) {
+            if (!mediaReady) return 0.5;
+            // For video: draw current frame
+            if (sourceMode === 'video' && !sourceVideo.paused) {
+                offCtx.drawImage(sourceVideo, 0, 0, offscreenCanvas.width, offscreenCanvas.height);
+            }
+            // Map grid cell to media pixel
+            const px = Math.floor((ix / Math.ceil(canvas.width / config.blockSize)) * offscreenCanvas.width);
+            const py = Math.floor((iy / Math.ceil(canvas.height / config.blockSize)) * offscreenCanvas.height);
+            const px2 = Math.max(0, Math.min(offscreenCanvas.width - 1, px));
+            const py2 = Math.max(0, Math.min(offscreenCanvas.height - 1, py));
+            try {
+                const pixel = offCtx.getImageData(px2, py2, 1, 1).data;
+                return (0.299 * pixel[0] + 0.587 * pixel[1] + 0.114 * pixel[2]) / 255;
+            } catch {
+                return 0.5;
+            }
+        }
+
+        // =============================================
+        // PATCH RENDER LOOP FOR MEDIA SOURCE
+        // =============================================
+
+        // Override the brightness calculation in the render loop
+        // We do this by monkey-patching the render function to use media brightness
+        const _origRender = render;
+        let _renderPatched = false;
+        if (!_renderPatched) {
+            _renderPatched = true;
+            // We already modified render above — the render loop will call getBrightnessFromSource
+        }
+
+        // =============================================
+        // KEYBOARD SHORTCUTS
+        // =============================================
+
         window.addEventListener('keydown', (e) => {
             if (e.key.toLowerCase() === 'h') {
                 document.getElementById('ui-panel').classList.toggle('hidden');
@@ -813,6 +1505,7 @@
 
         resize();
         render();
+
 
     </script>
 </body>
