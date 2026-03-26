@@ -792,9 +792,10 @@
             }
         }
 
-        // =============================================
-        // RENDER LOOP
-        // =============================================
+        // Media sampling buffers
+        let mediaBuffer = null;
+        let mediaBufferWidth = 0;
+        let mediaBufferHeight = 0;
 
         function render() {
             // Clear screen
@@ -808,6 +809,22 @@
             const rows = Math.ceil(height / config.blockSize);
             const baseSize = config.blockSize - config.gap;
             const isScaled = config.ditherStyle === 'scaled' && config.ditherPattern !== 'none';
+
+            // Sync media buffer (one capture per frame)
+            if (typeof sourceMode !== 'undefined' && sourceMode !== 'fractal' && typeof mediaReady !== 'undefined' && mediaReady) {
+                if (offscreenCanvas.width !== cols || offscreenCanvas.height !== rows) {
+                    offscreenCanvas.width = cols;
+                    offscreenCanvas.height = rows;
+                }
+                const source = sourceMode === 'video' ? sourceVideo : sourceImage;
+                if (source) {
+                    offCtx.drawImage(source, 0, 0, cols, rows);
+                    const imgData = offCtx.getImageData(0, 0, cols, rows);
+                    mediaBuffer = imgData.data;
+                    mediaBufferWidth = cols;
+                    mediaBufferHeight = rows;
+                }
+            }
 
             for (let iy = 0; iy < rows; iy++) {
                 for (let ix = 0; ix < cols; ix++) {
@@ -1340,6 +1357,7 @@ ${shapes}</svg>`;
 
         let sourceMode = 'fractal'; // 'fractal' | 'image' | 'video'
         let mediaReady = false;
+        let sourceImage = null; // Global reference for optimized sampling
 
         const sourceVideo = document.getElementById('sourceVideo');
         const offscreenCanvas = document.getElementById('offscreenCanvas');
@@ -1422,15 +1440,12 @@ ${shapes}</svg>`;
             const url = URL.createObjectURL(file);
 
             if (isImage && sourceMode === 'image') {
-                const img = new Image();
-                img.onload = () => {
-                    offscreenCanvas.width = img.width;
-                    offscreenCanvas.height = img.height;
-                    offCtx.drawImage(img, 0, 0);
+                sourceImage = new Image();
+                sourceImage.onload = () => {
                     mediaReady = true;
                     URL.revokeObjectURL(url);
                 };
-                img.src = url;
+                sourceImage.src = url;
             } else if (isVideo && sourceMode === 'video') {
                 sourceVideo.src = url;
                 sourceVideo.play();
@@ -1461,24 +1476,15 @@ ${shapes}</svg>`;
             document.getElementById('videoLoop').textContent = `↺ Loop: ${sourceVideo.loop ? 'On' : 'Off'}`;
         });
 
-        // Sample brightness from media at grid position (ix, iy)
+        // Sample brightness from pre-captured media buffer at grid position (ix, iy)
         function getBrightnessFromMedia(ix, iy) {
-            if (!mediaReady) return 0.5;
-            // For video: draw current frame
-            if (sourceMode === 'video' && !sourceVideo.paused) {
-                offCtx.drawImage(sourceVideo, 0, 0, offscreenCanvas.width, offscreenCanvas.height);
-            }
-            // Map grid cell to media pixel
-            const px = Math.floor((ix / Math.ceil(canvas.width / config.blockSize)) * offscreenCanvas.width);
-            const py = Math.floor((iy / Math.ceil(canvas.height / config.blockSize)) * offscreenCanvas.height);
-            const px2 = Math.max(0, Math.min(offscreenCanvas.width - 1, px));
-            const py2 = Math.max(0, Math.min(offscreenCanvas.height - 1, py));
-            try {
-                const pixel = offCtx.getImageData(px2, py2, 1, 1).data;
-                return (0.299 * pixel[0] + 0.587 * pixel[1] + 0.114 * pixel[2]) / 255;
-            } catch {
-                return 0.5;
-            }
+            if (!mediaBuffer || ix >= mediaBufferWidth || iy >= mediaBufferHeight) return 0.5;
+            const idx = (iy * mediaBufferWidth + ix) * 4;
+            const r = mediaBuffer[idx];
+            const g = mediaBuffer[idx + 1];
+            const b = mediaBuffer[idx + 2];
+            // Standard luminance formula: 0.299R + 0.587G + 0.114B
+            return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
         }
 
         // =============================================
