@@ -322,6 +322,31 @@
             border-color: #C43030;
         }
 
+        /* Video Export Settings Panel */
+        #video-export-settings {
+            display: none;
+            margin-top: 10px;
+            padding: 12px;
+            border: 1px solid #CCC;
+            background: #FFFFFF;
+        }
+        #video-export-settings.visible {
+            display: block;
+        }
+        #recordingProgressContainer {
+            width: 100%;
+            height: 4px;
+            background: #DCDCDA;
+            margin-top: 10px;
+            display: none;
+        }
+        #recordingProgress {
+            height: 100%;
+            background: #FF4F2A;
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
         /* Save / Load */
         .preset-save-row {
             display: flex;
@@ -640,6 +665,32 @@
         <div class="export-row">
             <button class="action-btn primary" id="exportPng">⬇ PNG</button>
             <button class="action-btn primary" id="exportSvg">⬇ SVG</button>
+            <button class="action-btn primary" id="exportVideoBtn">⬇ VIDEO</button>
+        </div>
+
+        <div id="video-export-settings">
+            <div class="control-group" id="video-length-group">
+                <label>Length</label>
+                <select id="videoLength">
+                    <option value="5" selected>5 Seconds</option>
+                    <option value="10">10 Seconds</option>
+                    <option value="20">20 Seconds</option>
+                </select>
+            </div>
+            <div class="control-group" id="video-resolution-group">
+                <label>Dimensions</label>
+                <select id="videoResolution">
+                    <option value="1920x1080">1920x1080 (FHD)</option>
+                    <option value="1080x1920">1080x1920 (Vertical)</option>
+                    <option value="1080x1080" selected>1080x1080 (Square)</option>
+                    <option value="1280x720">1280x720 (HD)</option>
+                </select>
+            </div>
+            <div style="font-size: 10px; color: #888; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px;" id="video-export-hint"></div>
+            <button class="action-btn primary" id="confirmVideoExport" style="width: 100%;">Start Recording</button>
+            <div id="recordingProgressContainer">
+                <div id="recordingProgress"></div>
+            </div>
         </div>
 
         <!-- SAVE / LOAD -->
@@ -778,8 +829,10 @@
 
         let time = 0;
         let width, height;
+        let isRecordingVideo = false;
 
         function resize() {
+            if (isRecordingVideo) return;
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
             width = canvas.width;
@@ -1448,6 +1501,161 @@ ${shapes}</svg>`;
         });
 
         // =============================================
+        // VIDEO EXPORT
+        // =============================================
+
+        document.getElementById('exportVideoBtn').addEventListener('click', () => {
+            const panel = document.getElementById('video-export-settings');
+            const isVisible = panel.classList.contains('visible');
+            
+            if (!isVisible) {
+                panel.classList.add('visible');
+                const lenGroup = document.getElementById('video-length-group');
+                const resGroup = document.getElementById('video-resolution-group');
+                const hint = document.getElementById('video-export-hint');
+                
+                if (sourceMode === 'video' && mediaReady) {
+                    lenGroup.style.display = 'none';
+                    resGroup.style.display = 'none';
+                    hint.innerHTML = `Exporting using original video duration and resolution (${sourceVideo.videoWidth}x${sourceVideo.videoHeight}).`;
+                } else {
+                    lenGroup.style.display = 'block';
+                    resGroup.style.display = 'block';
+                    hint.innerHTML = "Canvas size will adapt physically during recording to match Dimensions. Export may take time.";
+                }
+            } else {
+                panel.classList.remove('visible');
+            }
+        });
+
+        document.getElementById('confirmVideoExport').addEventListener('click', () => {
+            const btn = document.getElementById('confirmVideoExport');
+            const progressContainer = document.getElementById('recordingProgressContainer');
+            const progressBar = document.getElementById('recordingProgress');
+            const panel = document.getElementById('video-export-settings');
+            
+            btn.disabled = true;
+            btn.textContent = 'Preparing...';
+            document.querySelectorAll('button, select, input').forEach(el => el.disabled = true);
+            progressContainer.style.display = 'block';
+            progressBar.style.width = '0%';
+
+            isRecordingVideo = true;
+
+            let targetWidth, targetHeight, durationMs;
+
+            if (sourceMode === 'video' && mediaReady) {
+                targetWidth = sourceVideo.videoWidth;
+                targetHeight = sourceVideo.videoHeight;
+                durationMs = sourceVideo.duration * 1000;
+            } else {
+                const res = document.getElementById('videoResolution').value.split('x');
+                targetWidth = parseInt(res[0]);
+                targetHeight = parseInt(res[1]);
+                durationMs = parseInt(document.getElementById('videoLength').value) * 1000;
+            }
+
+            // Force canvas to target resolution internally
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+            width = targetWidth;
+            height = targetHeight;
+
+            // Optional: capture at 30 fps
+            const stream = canvas.captureStream(30);
+
+            // If source is a video, mix in its audio track if available
+            if (sourceMode === 'video' && mediaReady) {
+                // Try to get audio track from the HTML video element. 
+                // Using captureStream requires standard support, might work dynamically.
+                try {
+                    const videoStream = sourceVideo.captureStream ? sourceVideo.captureStream() : (sourceVideo.mozCaptureStream ? sourceVideo.mozCaptureStream() : null);
+                    if (videoStream && videoStream.getAudioTracks().length > 0) {
+                        stream.addTrack(videoStream.getAudioTracks()[0]);
+                    }
+                } catch(e) { console.warn("Could not capture audio stream from video", e); }
+            }
+
+            // Prefer MP4, fallback to WebM
+            let mimeType = 'video/webm';
+            let ext = 'webm';
+            if (MediaRecorder.isTypeSupported('video/mp4')) {
+                mimeType = 'video/mp4';
+                ext = 'mp4';
+            } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
+                mimeType = 'video/webm;codecs=vp9';
+            }
+
+            const recorder = new MediaRecorder(stream, {
+                mimeType: mimeType,
+                videoBitsPerSecond: 8000000 // 8 Mbps for high quality 1080p
+            });
+
+            const chunks = [];
+            recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+
+            recorder.onstop = () => {
+                const blob = new Blob(chunks, { type: mimeType });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `dither-fractal-${Date.now()}.${ext}`;
+                a.click();
+                setTimeout(() => URL.revokeObjectURL(url), 100);
+
+                // Restore UI
+                isRecordingVideo = false;
+                resize(); // restore original window size to canvas
+                document.querySelectorAll('button, select, input').forEach(el => el.disabled = false);
+                btn.textContent = 'Start Recording';
+                progressContainer.style.display = 'none';
+                panel.classList.remove('visible');
+            };
+
+            const startTime = performance.now();
+            let recordingTimer;
+            
+            const updateProgress = () => {
+                let elapsed;
+                if (sourceMode === 'video' && mediaReady) {
+                    elapsed = sourceVideo.currentTime * 1000;
+                } else {
+                    elapsed = performance.now() - startTime;
+                }
+                
+                const pct = Math.min(100, (elapsed / durationMs) * 100);
+                progressBar.style.width = `${pct}%`;
+
+                if (elapsed >= durationMs || (sourceMode === 'video' && sourceVideo.ended)) {
+                    recorder.stop();
+                    cancelAnimationFrame(recordingTimer);
+                    sourceVideo.pause();
+                } else {
+                    recordingTimer = requestAnimationFrame(updateProgress);
+                }
+            };
+
+            // Start Recording Process
+            btn.textContent = 'Recording (Do not close tab)';
+            
+            if (sourceMode === 'video' && mediaReady) {
+                sourceVideo.pause();
+                sourceVideo.currentTime = 0;
+                // Wait for seeked event before starting
+                const onSeeked = () => {
+                    sourceVideo.removeEventListener('seeked', onSeeked);
+                    recorder.start(1000);
+                    sourceVideo.play();
+                    recordingTimer = requestAnimationFrame(updateProgress);
+                };
+                sourceVideo.addEventListener('seeked', onSeeked);
+            } else {
+                recorder.start(1000); // chunk every 1s
+                recordingTimer = requestAnimationFrame(updateProgress);
+            }
+        });
+
+        // =============================================
         // SAVE / LOAD PRESETS (Feature 3)
         // =============================================
 
@@ -1664,6 +1872,23 @@ ${shapes}</svg>`;
                 } else {
                     hint.innerHTML = 'Drop an MP4/WebM video here<br>or click to browse';
                     mediaFileInput.accept = 'video/mp4,video/webm';
+                }
+            }
+
+            // Sync video export panel if it's currently visible
+            const panel = document.getElementById('video-export-settings');
+            if (panel && panel.classList.contains('visible')) {
+                const lenGroup = document.getElementById('video-length-group');
+                const resGroup = document.getElementById('video-resolution-group');
+                const hint = document.getElementById('video-export-hint');
+                if (mode === 'video') {
+                    lenGroup.style.display = 'none';
+                    resGroup.style.display = 'none';
+                    hint.innerHTML = `Exporting using original video duration and resolution.`;
+                } else {
+                    lenGroup.style.display = 'block';
+                    resGroup.style.display = 'block';
+                    hint.innerHTML = "Canvas size will adapt physically during recording to match Dimensions. Export may take time.";
                 }
             }
         }
