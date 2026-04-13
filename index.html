@@ -12,6 +12,11 @@
             height: 100%;
             overflow: hidden;
             background-color: #050508;
+            background-image: 
+                linear-gradient(45deg, #111 25%, transparent 25%, transparent 75%, #111 75%, #111), 
+                linear-gradient(45deg, #111 25%, transparent 25%, transparent 75%, #111 75%, #111);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
             font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
         }
 
@@ -498,6 +503,7 @@
         }
 
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
 
@@ -686,6 +692,14 @@
                     <option value="1280x720">1280x720 (HD)</option>
                 </select>
             </div>
+            <div class="control-group" id="video-format-group" style="margin-top: 8px;">
+                <label>Format</label>
+                <select id="videoFormat">
+                    <option value="video/mp4" selected>MP4 (No Transparency)</option>
+                    <option value="video/webm;codecs=vp9">WebM (Supports Transparency)</option>
+                    <option value="sequence/png">PNG Sequence (ZIP, Supports Transparency)</option>
+                </select>
+            </div>
             <div style="font-size: 10px; color: #888; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px;" id="video-export-hint"></div>
             <button class="action-btn primary" id="confirmVideoExport" style="width: 100%;">Start Recording</button>
             <div id="recordingProgressContainer">
@@ -717,7 +731,7 @@
 
     <script>
         const canvas = document.getElementById('plasmaCanvas');
-        const ctx = canvas.getContext('2d', { alpha: false });
+        const ctx = canvas.getContext('2d', { alpha: true });
 
         // =============================================
         // DITHER MATRICES (from glsl-dither / 34.svg-rain.js)
@@ -789,8 +803,10 @@
         // =============================================
 
         const hexToRgb = h => {
+            h = h.padEnd(9, 'F');
             const r = parseInt(h.slice(1,3), 16), g = parseInt(h.slice(3,5), 16), b = parseInt(h.slice(5,7), 16);
-            return [r, g, b];
+            const a = h.length >= 9 ? parseInt(h.slice(7,9), 16) / 255.0 : 1.0;
+            return [r, g, b, a];
         };
 
         const COBALT_DEEP = ["#031438", "#07245C", "#0F3880", "#1A52A8", "#2B6FCC", "#4A8FDE", "#7BB3E8", "#AECFEE", "#FFFFFF"];
@@ -833,6 +849,38 @@
 
         function resize() {
             if (isRecordingVideo) return;
+            
+            if (sourceMode !== 'fractal' && mediaReady) {
+                const source = sourceMode === 'video' ? sourceVideo : sourceImage;
+                if (source) {
+                    const natWidth = sourceMode === 'video' ? source.videoWidth : source.naturalWidth;
+                    const natHeight = sourceMode === 'video' ? source.videoHeight : source.naturalHeight;
+                    
+                    if (natWidth && natHeight) {
+                        canvas.width = natWidth;
+                        canvas.height = natHeight;
+                        width = canvas.width;
+                        height = canvas.height;
+                        
+                        canvas.style.width = 'auto';
+                        canvas.style.height = 'auto';
+                        canvas.style.maxWidth = '100vw';
+                        canvas.style.maxHeight = '100vh';
+                        canvas.style.position = 'absolute';
+                        canvas.style.left = '50%';
+                        canvas.style.top = '50%';
+                        canvas.style.transform = 'translate(-50%, -50%)';
+                        return;
+                    }
+                }
+            }
+
+            canvas.style.position = 'static';
+            canvas.style.transform = 'none';
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
+            canvas.style.maxWidth = 'none';
+            canvas.style.maxHeight = 'none';
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
             width = canvas.width;
@@ -845,7 +893,7 @@
         // COLOR FUNCTIONS
         // =============================================
 
-        // Get raw brightness-to-color (returns [r, g, b] array)
+        // Get raw brightness-to-color (returns [r, g, b, a] array)
         function getColorRGB(val) {
             // Sigmoid for that high-contrast "electric" look
             val = 1.0 / (1.0 + Math.exp(-10 * (val - 0.5) * config.contrast));
@@ -861,7 +909,8 @@
             return [
                 c1[0] + (c2[0] - c1[0]) * f,
                 c1[1] + (c2[1] - c1[1]) * f,
-                c1[2] + (c2[2] - c1[2]) * f
+                c1[2] + (c2[2] - c1[2]) * f,
+                (c1[3] !== undefined ? c1[3] : 1.0) + ((c2[3] !== undefined ? c2[3] : 1.0) - (c1[3] !== undefined ? c1[3] : 1.0)) * f
             ];
         }
 
@@ -1004,10 +1053,11 @@
         let mediaBufferWidth = 0;
         let mediaBufferHeight = 0;
 
-        function render() {
+        let isExportingSequence = false;
+
+        function drawFrame() {
             // Clear screen
-            ctx.fillStyle = '#050508';
-            ctx.fillRect(0, 0, width, height);
+            ctx.clearRect(0, 0, width, height);
 
             const z = 0.02 * config.zoom;
             const t = time;
@@ -1071,7 +1121,8 @@
 
                     // Pass 2: Apply dither to decide color
                     const rgb = getDitheredColor(v, ix, iy);
-                    ctx.fillStyle = `rgb(${rgb[0]|0},${rgb[1]|0},${rgb[2]|0})`;
+                    const alpha = rgb[3] !== undefined ? rgb[3] : 1.0;
+                    ctx.fillStyle = `rgba(${rgb[0]|0},${rgb[1]|0},${rgb[2]|0},${alpha})`;
 
                     if (isScaled) {
                         // Scaled mode: shape size proportional to brightness
@@ -1086,7 +1137,11 @@
                     }
                 }
             }
+        }
 
+        function render() {
+            if (isExportingSequence) return;
+            drawFrame();
             time += 0.04 * config.speed;
             requestAnimationFrame(render);
         }
@@ -1160,11 +1215,11 @@
         }
 
         function isValidHex(h) {
-            return /^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(h.trim());
+            return /^#?([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(h.trim());
         }
         function normalizeHex(h) {
             h = h.trim().replace('#', '');
-            if (h.length === 3) h = h.split('').map(c => c+c).join('');
+            if (h.length === 3 || h.length === 4) h = h.split('').map(c => c+c).join('');
             return '#' + h.toLowerCase();
         }
 
@@ -1189,7 +1244,8 @@
                 lut.push([
                     c1[0] + (c2[0] - c1[0]) * f,
                     c1[1] + (c2[1] - c1[1]) * f,
-                    c1[2] + (c2[2] - c1[2]) * f
+                    c1[2] + (c2[2] - c1[2]) * f,
+                    c1[3] + (c2[3] - c1[3]) * f
                 ]);
             }
             return lut;
@@ -1276,9 +1332,48 @@
             container.appendChild(stopBar);
 
             customColors.forEach((hex, i) => {
+                const rowBlock = document.createElement('div');
+                rowBlock.style.marginBottom = '12px';
+                rowBlock.draggable = true;
+                
+                rowBlock.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', i);
+                    setTimeout(() => { rowBlock.style.opacity = '0.5'; }, 0);
+                });
+                rowBlock.addEventListener('dragend', (e) => { rowBlock.style.opacity = '1'; });
+                rowBlock.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    rowBlock.style.background = 'rgba(255,255,255,0.05)';
+                });
+                rowBlock.addEventListener('dragleave', (e) => { rowBlock.style.background = ''; });
+                rowBlock.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    rowBlock.style.background = '';
+                    const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
+                    const toIndex = i;
+                    if (fromIndex !== toIndex && !isNaN(fromIndex)) {
+                        const [movedColor] = customColors.splice(fromIndex, 1);
+                        customColors.splice(toIndex, 0, movedColor);
+                        renderColorRows();
+                        if (document.getElementById('palette').value === 'custom') { config.palette = buildCustomPaletteRGB(); }
+                    }
+                });
+
                 const row = document.createElement('div');
                 row.className = 'color-row';
-
+                
+                const dragHandle = document.createElement('div');
+                dragHandle.innerHTML = '⠿';
+                dragHandle.style.cursor = 'grab';
+                dragHandle.style.color = '#888';
+                dragHandle.style.fontSize = '14px';
+                dragHandle.style.lineHeight = '1';
+                dragHandle.style.userSelect = 'none';
+                dragHandle.title = 'Drag to reorder';
+                dragHandle.style.padding = '0 4px';
+                
                 // Swatch
                 const swatch = document.createElement('div');
                 swatch.className = 'color-swatch-btn';
@@ -1286,11 +1381,13 @@
 
                 const picker = document.createElement('input');
                 picker.type = 'color';
-                picker.value = hex;
+                picker.value = hex.substring(0, 7);
                 picker.addEventListener('input', (e) => {
-                    customColors[i] = e.target.value;
-                    swatch.style.background = e.target.value;
-                    hexInputEl.value = e.target.value;
+                    const alphaHex = alphaSlider ? Math.round((parseInt(alphaSlider.value) / 100) * 255).toString(16).padStart(2, '0').toUpperCase() : '';
+                    const newHex = e.target.value + (alphaHex === 'FF' ? '' : alphaHex);
+                    customColors[i] = newHex;
+                    swatch.style.background = newHex;
+                    hexInputEl.value = newHex;
                     if (document.getElementById('palette').value === 'custom') {
                         config.palette = buildCustomPaletteRGB();
                         updateStopBar();
@@ -1303,8 +1400,8 @@
                 hexInputEl.type = 'text';
                 hexInputEl.className = 'hex-input';
                 hexInputEl.value = hex;
-                hexInputEl.maxLength = 7;
-                hexInputEl.placeholder = '#000000';
+                hexInputEl.maxLength = 9;
+                hexInputEl.placeholder = '#000000FF';
                 hexInputEl.spellcheck = false;
                 hexInputEl.addEventListener('input', (e) => {
                     let raw = e.target.value.trim();
@@ -1313,7 +1410,12 @@
                         const normalized = normalizeHex(raw);
                         customColors[i] = normalized;
                         swatch.style.background = normalized;
-                        picker.value = normalized;
+                        picker.value = normalized.substring(0, 7);
+                        if (alphaSlider) {
+                            const newAlpha = normalized.length >= 9 ? Math.round((parseInt(normalized.substring(7,9), 16) / 255) * 100) : 100;
+                            alphaSlider.value = newAlpha;
+                            alphaVal.textContent = newAlpha + '%';
+                        }
                         if (document.getElementById('palette').value === 'custom') {
                             config.palette = buildCustomPaletteRGB();
                             updateStopBar();
@@ -1322,9 +1424,68 @@
                 });
                 hexInputEl.addEventListener('blur', (e) => { e.target.value = customColors[i]; });
 
+                // Opacity Input
+                const alphaWrap = document.createElement('div');
+                alphaWrap.style.display = 'flex';
+                alphaWrap.style.alignItems = 'center';
+                alphaWrap.style.gap = '8px';
+                alphaWrap.style.marginLeft = '28px'; // Align with swatch somewhat
+                alphaWrap.style.marginTop = '4px';
+                
+                const alphaLabel = document.createElement('label');
+                alphaLabel.textContent = 'OPACITY %';
+                alphaLabel.style.margin = '0';
+                alphaLabel.style.fontSize = '9px';
+                alphaLabel.style.color = '#888';
+                alphaLabel.style.flex = 'none';
+                
+                const alphaSlider = document.createElement('input');
+                alphaSlider.type = 'number';
+                alphaSlider.min = '0';
+                alphaSlider.max = '100';
+                alphaSlider.step = '1';
+                alphaSlider.style.width = '60px';
+                alphaSlider.style.fontSize = '12px';
+                alphaSlider.style.padding = '2px 4px';
+                alphaSlider.style.border = '1px solid #CCC';
+                alphaSlider.style.borderRadius = '2px';
+                alphaSlider.style.outline = 'none';
+                alphaSlider.style.background = '#FFF';
+
+                const currentAlpha = hex.length >= 9 ? Math.round((parseInt(hex.substring(7, 9), 16) / 255) * 100) : 100;
+                alphaSlider.value = currentAlpha;
+                
+                // Keep dummy reference so hex input event listener doesn't crash 
+                const alphaVal = { textContent: '' }; 
+
+                alphaSlider.addEventListener('input', (e) => {
+                    let pct = parseInt(e.target.value);
+                    if (isNaN(pct)) return;
+                    pct = Math.max(0, Math.min(100, pct));
+                    
+                    const baseHex = hexInputEl.value.substring(0, 7).padEnd(7, '0');
+                    const alphaHex = pct === 100 ? '' : Math.round((pct / 100) * 255).toString(16).padStart(2, '0').toUpperCase();
+                    const newHex = baseHex + alphaHex;
+                    
+                    customColors[i] = newHex;
+                    hexInputEl.value = newHex;
+                    swatch.style.background = newHex;
+                    
+                    if (document.getElementById('palette').value === 'custom') {
+                        config.palette = buildCustomPaletteRGB();
+                        updateStopBar();
+                    }
+                });
+
+                alphaWrap.appendChild(alphaLabel);
+                alphaWrap.appendChild(alphaSlider);
+                
+                row.appendChild(dragHandle);
                 row.appendChild(swatch);
                 row.appendChild(hexInputEl);
-                container.appendChild(row);
+                rowBlock.appendChild(row);
+                rowBlock.appendChild(alphaWrap);
+                container.appendChild(rowBlock);
             });
 
             updateStopBar();
@@ -1452,7 +1613,8 @@
                         }
 
                         const rgb = getDitheredColor(v, ix, iy);
-                        const fill = `rgb(${rgb[0]|0},${rgb[1]|0},${rgb[2]|0})`;
+                        const alpha = (rgb[3] !== undefined ? rgb[3] : 1.0).toFixed(3);
+                        const fill = alpha < 1 ? `rgba(${rgb[0]|0},${rgb[1]|0},${rgb[2]|0},${alpha})` : `rgb(${rgb[0]|0},${rgb[1]|0},${rgb[2]|0})`;
 
                         let shapeEl = '';
                         if (isScaled) {
@@ -1484,7 +1646,6 @@
 
                 const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
-  <rect width="${w}" height="${h}" fill="#050508"/>
 ${shapes}</svg>`;
 
                 const blob = new Blob([svg], { type: 'image/svg+xml' });
@@ -1576,14 +1737,19 @@ ${shapes}</svg>`;
                 } catch(e) { console.warn("Could not capture audio stream from video", e); }
             }
 
-            // Prefer MP4, fallback to WebM
-            let mimeType = 'video/webm';
-            let ext = 'webm';
-            if (MediaRecorder.isTypeSupported('video/mp4')) {
-                mimeType = 'video/mp4';
-                ext = 'mp4';
-            } else if (MediaRecorder.isTypeSupported('video/webm;codecs=vp9')) {
-                mimeType = 'video/webm;codecs=vp9';
+            let mimeType = document.getElementById('videoFormat').value;
+            
+            if (mimeType === 'sequence/png') {
+                exportPngSequence(targetWidth, targetHeight, durationMs, btn, progressContainer, progressBar, panel);
+                return;
+            }
+
+            let ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+            
+            if (!MediaRecorder.isTypeSupported(mimeType)) {
+                // fallback safely
+                if (MediaRecorder.isTypeSupported('video/mp4')) { mimeType = 'video/mp4'; ext = 'mp4'; }
+                else { mimeType = 'video/webm'; ext = 'webm'; }
             }
 
             const recorder = new MediaRecorder(stream, {
@@ -1654,6 +1820,80 @@ ${shapes}</svg>`;
                 recordingTimer = requestAnimationFrame(updateProgress);
             }
         });
+
+        async function exportPngSequence(targetWidth, targetHeight, durationMs, btn, progressContainer, progressBar, panel) {
+            btn.textContent = 'Rendering Frames...';
+            isExportingSequence = true;
+            
+            // Wait a tick to ensure the real-time render loop halted.
+            await new Promise(r => setTimeout(r, 50));
+
+            const zip = new JSZip();
+            const seqFolder = zip.folder("sequence");
+            const fps = 30;
+            let totalFrames = Math.ceil((durationMs / 1000) * fps);
+            
+            let frame = 0;
+            
+            if (typeof sourceMode !== 'undefined' && sourceMode === 'video' && mediaReady) {
+                sourceVideo.pause();
+            }
+
+            const getBlob = () => new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+            
+            const seekVideo = (timeSec) => new Promise(resolve => {
+                const handler = () => { sourceVideo.removeEventListener('seeked', handler); resolve(); };
+                sourceVideo.addEventListener('seeked', handler);
+                sourceVideo.currentTime = timeSec;
+            });
+
+            const origTime = time;
+
+            for (frame = 0; frame < totalFrames; frame++) {
+                progressBar.style.width = `${(frame / totalFrames) * 100}%`;
+                
+                if (typeof sourceMode !== 'undefined' && sourceMode === 'video' && mediaReady) {
+                    await seekVideo(frame / fps);
+                } else {
+                    time = origTime + (frame * 0.08 * config.speed);
+                }
+                
+                drawFrame();
+                const blob = await getBlob();
+                
+                const frameStr = String(frame).padStart(4, '0');
+                seqFolder.file(`frame_${frameStr}.png`, blob);
+            }
+            
+            btn.textContent = 'Zipping... (Please wait)';
+            progressBar.style.width = '100%';
+            
+            // Generate zip
+            const zipBlob = await zip.generateAsync({ type: "blob" });
+            const url = URL.createObjectURL(zipBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `sequence-${Date.now()}.zip`;
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(url), 100);
+
+            // Restore UI & State
+            time = origTime;
+            isExportingSequence = false;
+            isRecordingVideo = false;
+            resize(); 
+            document.querySelectorAll('button, select, input').forEach(el => el.disabled = false);
+            btn.textContent = 'Start Recording';
+            progressContainer.style.display = 'none';
+            panel.classList.remove('visible');
+            
+            if (typeof sourceMode !== 'undefined' && sourceMode === 'video' && mediaReady) {
+               sourceVideo.play();
+            }
+            
+            // Restart standard render loop
+            render();
+        }
 
         // =============================================
         // SAVE / LOAD PRESETS (Feature 3)
@@ -1891,6 +2131,7 @@ ${shapes}</svg>`;
                     hint.innerHTML = "Canvas size will adapt physically during recording to match Dimensions. Export may take time.";
                 }
             }
+            resize();
         }
 
         document.getElementById('srcFractal').addEventListener('click', () => setSourceMode('fractal'));
@@ -1937,6 +2178,7 @@ ${shapes}</svg>`;
                 sourceImage.onload = () => {
                     mediaReady = true;
                     URL.revokeObjectURL(url);
+                    resize();
                 };
                 sourceImage.src = url;
             } else if (isVideo && sourceMode === 'video') {
@@ -1946,6 +2188,7 @@ ${shapes}</svg>`;
                     offscreenCanvas.width = sourceVideo.videoWidth;
                     offscreenCanvas.height = sourceVideo.videoHeight;
                     mediaReady = true;
+                    resize();
                 };
                 document.getElementById('video-controls').classList.add('visible');
             }
